@@ -1,5 +1,21 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
+// ─── API ──────────────────────────────────────────────────────────────────────
+const API_BASE = "http://localhost:3001/api";
+
+const api = {
+  async getFreelancers() {
+    const res = await fetch(`${API_BASE}/freelancers`);
+    if (!res.ok) throw new Error("Failed to fetch freelancers");
+    return res.json();
+  },
+  async getJobs() {
+    const res = await fetch(`${API_BASE}/jobs`);
+    if (!res.ok) throw new Error("Failed to fetch jobs");
+    return res.json();
+  },
+};
+
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
 const C = {
   green: { 50: "#f0fdf4", 100: "#dcfce7", 200: "#bbf7d0", 400: "#4ade80", 600: "#16a34a", 800: "#166534", 900: "#14532d" },
@@ -392,17 +408,28 @@ const RegisterPage = ({ setUser, setView, defaultRole = "teacher" }) => {
 
 // ─── BROWSE FREELANCERS (Teacher View) ────────────────────────────────────────
 const BrowsePage = ({ user, setView, setSelectedFreelancer }) => {
+  const [freelancers, setFreelancers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [catFilter, setCatFilter] = useState("");
   const [provinceFilter, setProvinceFilter] = useState("");
   const [remoteOnly, setRemoteOnly] = useState(false);
   const [search, setSearch] = useState("");
 
-  const filtered = MOCK_FREELANCERS.filter(f =>
+  useEffect(() => {
+    api.getFreelancers()
+      .then(setFreelancers)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = freelancers.filter(f =>
     (!catFilter || f.categories.includes(catFilter)) &&
     (!provinceFilter || f.province === provinceFilter) &&
     (!remoteOnly || f.remote) &&
     (!search || f.name.toLowerCase().includes(search.toLowerCase()) || f.categories.some(c => c.toLowerCase().includes(search.toLowerCase())))
   );
+
+  if (loading) return <div style={{ textAlign: "center", padding: "3rem" }}>Loading freelancers...</div>;
 
   return (
     <div style={{ minHeight: "calc(100vh-60px)", background: bgPage, padding: "0 0 3rem" }}>
@@ -784,13 +811,24 @@ const MyJobs = ({ user, setView }) => {
 
 // ─── BROWSE JOBS (Freelancer View) ────────────────────────────────────────────
 const BrowseJobs = ({ user, setView }) => {
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [catFilter, setCatFilter] = useState("");
   const [proposalJob, setProposalJob] = useState(null);
   const [proposalText, setProposalText] = useState("");
   const [proposalPrice, setProposalPrice] = useState("");
   const [submitted, setSubmitted] = useState({});
 
-  const filtered = MOCK_JOBS.filter(j => !catFilter || j.category === catFilter);
+  useEffect(() => {
+    api.getJobs()
+      .then(setJobs)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = jobs.filter(j => !catFilter || j.category === catFilter);
+
+  if (loading) return <div style={{ textAlign: "center", padding: "3rem" }}>Loading jobs...</div>;
 
   return (
     <div style={{ background: bgPage, minHeight: "calc(100vh - 60px)", padding: "0 0 3rem" }}>
