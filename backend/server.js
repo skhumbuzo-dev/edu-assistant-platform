@@ -81,17 +81,69 @@ let db;
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
   )`);
 
+  await db.run(`CREATE TABLE IF NOT EXISTS proposals (
+    id TEXT PRIMARY KEY,
+    job_id TEXT REFERENCES jobs(id),
+    freelancer_id TEXT REFERENCES users(id),
+    cover_letter TEXT NOT NULL,
+    proposed_price REAL NOT NULL,
+    estimated_days INTEGER,
+    status TEXT DEFAULT 'pending',
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  )`);
+
+  await db.run(`CREATE TABLE IF NOT EXISTS conversations (
+    id TEXT PRIMARY KEY,
+    job_id TEXT REFERENCES jobs(id),
+    teacher_id TEXT REFERENCES users(id),
+    freelancer_id TEXT REFERENCES users(id),
+    last_message_at TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  )`);
+
+  await db.run(`CREATE TABLE IF NOT EXISTS messages (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT REFERENCES conversations(id),
+    sender_id TEXT REFERENCES users(id),
+    body TEXT,
+    is_read INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  )`);
+
+  await db.run(`CREATE TABLE IF NOT EXISTS transactions (
+    id TEXT PRIMARY KEY,
+    job_id TEXT REFERENCES jobs(id),
+    teacher_id TEXT REFERENCES users(id),
+    freelancer_id TEXT REFERENCES users(id),
+    gross_amount REAL NOT NULL,
+    commission_rate REAL DEFAULT 0.20,
+    commission_amount REAL,
+    freelancer_amount REAL,
+    status TEXT DEFAULT 'pending',
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  )`);
+
   // Insert sample data if empty
   const count = await db.get("SELECT COUNT(*) as count FROM users");
   if (count.count === 0) {
-    const freelancers = [
-      { id: "f1", name: "Thandi Nkosi", email: "thandi@example.com", password_hash: await bcrypt.hash("pass", 10), role: "freelancer", province: "Gauteng", city: "Johannesburg", bio: "Former HOD with 15 years experience.", remote_available: 1, subjects: '["Mathematics"]', verified: 1 },
-      { id: "f2", name: "Johan van der Berg", email: "johan@example.com", password_hash: await bcrypt.hash("pass", 10), role: "freelancer", province: "Western Cape", city: "Cape Town", bio: "Curriculum specialist.", remote_available: 1, subjects: '["English"]', verified: 1 },
+    const users = [
+      { id: "t1", name: "Teacher Demo", email: "teacher@demo.com", password_hash: await bcrypt.hash("demo123", 10), role: "teacher", province: "Gauteng", city: "Pretoria", bio: "CAPS classroom teacher looking for admin support.", verified: 1 },
+      { id: "f1", name: "Thandi Nkosi", email: "freelancer@demo.com", password_hash: await bcrypt.hash("demo123", 10), role: "freelancer", province: "Gauteng", city: "Johannesburg", bio: "Former HOD with 15 years experience.", verified: 1 },
+      { id: "f2", name: "Johan van der Berg", email: "johan@example.com", password_hash: await bcrypt.hash("pass", 10), role: "freelancer", province: "Western Cape", city: "Cape Town", bio: "Curriculum specialist.", verified: 1 },
+      { id: "a1", name: "Admin Demo", email: "admin@demo.com", password_hash: await bcrypt.hash("admin123", 10), role: "admin", province: "Western Cape", city: "Cape Town", bio: "Platform administrator.", verified: 1 },
     ];
 
-    for (const f of freelancers) {
-      await db.run("INSERT INTO users (id, name, email, password_hash, role, province, city, bio, is_verified) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", [f.id, f.name, f.email, f.password_hash, f.role, f.province, f.city, f.bio, f.verified]);
-      await db.run("INSERT INTO freelancer_profiles (id, user_id, hourly_rate, remote_available, subjects) VALUES (?, ?, ?, ?, ?)", [f.id + "_profile", f.id, 180, f.remote_available, f.subjects]);
+    for (const user of users) {
+      await db.run("INSERT INTO users (id, name, email, password_hash, role, province, city, bio, is_verified) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", [user.id, user.name, user.email, user.password_hash, user.role, user.province, user.city, user.bio, user.verified]);
+    }
+
+    const freelancerProfiles = [
+      { id: "f1_profile", user_id: "f1", hourly_rate: 180, remote_available: 1, subjects: '["Mathematics"]' },
+      { id: "f2_profile", user_id: "f2", hourly_rate: 180, remote_available: 1, subjects: '["English"]' },
+    ];
+
+    for (const profile of freelancerProfiles) {
+      await db.run("INSERT INTO freelancer_profiles (id, user_id, hourly_rate, remote_available, subjects) VALUES (?, ?, ?, ?, ?)", [profile.id, profile.user_id, profile.hourly_rate, profile.remote_available, profile.subjects]);
     }
 
     const jobs = [
@@ -120,7 +172,7 @@ app.get("/api/health", async (req, res) => {
 // Register
 app.post("/api/auth/register", async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, role = "teacher", province, city, bio, subjects = [] } = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({ error: "Name, email, and password are required" });
@@ -136,15 +188,31 @@ app.post("/api/auth/register", async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, 10);
     const id = Math.random().toString(36).substr(2, 9);
+    const normalizedRole = role === "freelancer" ? "freelancer" : role === "admin" ? "admin" : "teacher";
 
     await db.run(
-      "INSERT INTO users (id, name, email, password_hash, role) VALUES (?, ?, ?, ?, ?)",
-      [id, name.trim(), normalizedEmail, passwordHash, "teacher"]
+      "INSERT INTO users (id, name, email, password_hash, role, province, city, bio) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      [id, name.trim(), normalizedEmail, passwordHash, normalizedRole, province || null, city || null, bio || null]
+    );
+
+    if (normalizedRole === "freelancer") {
+      const profileSubjects = Array.isArray(subjects) ? JSON.stringify(subjects) : JSON.stringify([subjects]);
+      await db.run(
+        "INSERT INTO freelancer_profiles (id, user_id, hourly_rate, remote_available, subjects) VALUES (?, ?, ?, ?, ?)",
+        [id + "_profile", id, 180, 1, profileSubjects]
+      );
+    }
+
+    const token = jwt.sign(
+      { userId: id, email: normalizedEmail },
+      JWT_SECRET,
+      { expiresIn: "7d" }
     );
 
     return res.status(201).json({
       message: "User registered successfully",
-      user: { id, name: name.trim(), email: normalizedEmail },
+      token,
+      user: { id, name: name.trim(), email: normalizedEmail, role: normalizedRole, province: province || null, city: city || null, bio: bio || null },
     });
   } catch (err) {
     console.error("Register failed:", err.message);
@@ -164,7 +232,7 @@ app.post("/api/auth/login", async (req, res) => {
     const normalizedEmail = email.trim().toLowerCase();
 
     const user = await db.get(
-      "SELECT id, name, email, password_hash FROM users WHERE email = ?",
+      "SELECT id, name, email, role, province, city, bio, password_hash FROM users WHERE email = ?",
       [normalizedEmail]
     );
 
@@ -187,7 +255,7 @@ app.post("/api/auth/login", async (req, res) => {
     return res.json({
       message: "Login successful",
       token,
-      user: { id: user.id, name: user.name, email: user.email },
+      user: { id: user.id, name: user.name, email: user.email, role: user.role, province: user.province, city: user.city, bio: user.bio },
     });
   } catch (err) {
     console.error("Login failed:", err.message);
@@ -219,7 +287,7 @@ function requireAuth(req, res, next) {
 app.get("/api/users/me", requireAuth, async (req, res) => {
   try {
     const userId = req.auth.userId;
-    const user = await db.get("SELECT id, name, email FROM users WHERE id = ?", [userId]);
+    const user = await db.get("SELECT id, name, email, role, province, city, bio FROM users WHERE id = ?", [userId]);
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
@@ -272,6 +340,180 @@ app.get("/api/jobs", async (req, res) => {
   } catch (err) {
     console.error("Jobs fetch failed:", err.message);
     res.status(500).json({ error: "Failed to fetch jobs" });
+  }
+});
+
+// Create job
+app.post("/api/jobs", requireAuth, async (req, res) => {
+  try {
+    const { title, description, categoryId, subject, gradeLevel, budget, deadline, province, city, remoteOk } = req.body;
+    const teacherId = req.auth.userId;
+
+    if (!title || !description || !budget || !deadline) {
+      return res.status(400).json({ error: "Title, description, budget, and deadline are required" });
+    }
+
+    const jobId = Math.random().toString(36).substr(2, 9);
+    await db.run(`
+      INSERT INTO jobs (id, teacher_id, title, description, category_id, subject, grade_level, budget, deadline, province, city, remote_ok)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [jobId, teacherId, title, description, categoryId, subject, gradeLevel, budget, deadline, province, city, remoteOk || true]);
+
+    const job = await db.get("SELECT * FROM jobs WHERE id = ?", [jobId]);
+    res.status(201).json(job);
+  } catch (err) {
+    console.error("Job creation failed:", err.message);
+    res.status(500).json({ error: "Failed to create job" });
+  }
+});
+
+// Get job by ID
+app.get("/api/jobs/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const job = await db.get(`
+      SELECT j.*, sc.name as category_name, u.name as teacher_name
+      FROM jobs j
+      LEFT JOIN service_categories sc ON j.category_id = sc.id
+      LEFT JOIN users u ON j.teacher_id = u.id
+      WHERE j.id = ?
+    `, [id]);
+
+    if (!job) {
+      return res.status(404).json({ error: "Job not found" });
+    }
+
+    res.json(job);
+  } catch (err) {
+    console.error("Job fetch failed:", err.message);
+    res.status(500).json({ error: "Failed to fetch job" });
+  }
+});
+
+// Submit proposal
+app.post("/api/proposals", requireAuth, async (req, res) => {
+  try {
+    const { jobId, coverLetter, proposedPrice, estimatedDays } = req.body;
+    const freelancerId = req.auth.userId;
+
+    if (!jobId || !coverLetter || !proposedPrice) {
+      return res.status(400).json({ error: "Job ID, cover letter, and proposed price are required" });
+    }
+
+    // Check if job exists and is open
+    const job = await db.get("SELECT id, status FROM jobs WHERE id = ?", [jobId]);
+    if (!job) {
+      return res.status(404).json({ error: "Job not found" });
+    }
+    if (job.status !== 'open') {
+      return res.status(400).json({ error: "Job is no longer accepting proposals" });
+    }
+
+    // Check if user already submitted proposal
+    const existing = await db.get("SELECT id FROM proposals WHERE job_id = ? AND freelancer_id = ?", [jobId, freelancerId]);
+    if (existing) {
+      return res.status(409).json({ error: "You have already submitted a proposal for this job" });
+    }
+
+    const proposalId = Math.random().toString(36).substr(2, 9);
+    await db.run(`
+      INSERT INTO proposals (id, job_id, freelancer_id, cover_letter, proposed_price, estimated_days)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `, [proposalId, jobId, freelancerId, coverLetter, proposedPrice, estimatedDays]);
+
+    const proposal = await db.get("SELECT * FROM proposals WHERE id = ?", [proposalId]);
+    res.status(201).json(proposal);
+  } catch (err) {
+    console.error("Proposal submission failed:", err.message);
+    res.status(500).json({ error: "Failed to submit proposal" });
+  }
+});
+
+// Send message
+app.post("/api/messages", requireAuth, async (req, res) => {
+  try {
+    const { jobId, recipientId, body } = req.body;
+    const senderId = req.auth.userId;
+
+    if (!jobId || !recipientId || !body) {
+      return res.status(400).json({ error: "Job ID, recipient ID, and message body are required" });
+    }
+
+    // Get or create conversation
+    let conversation = await db.get(`
+      SELECT id FROM conversations 
+      WHERE job_id = ? AND ((teacher_id = ? AND freelancer_id = ?) OR (teacher_id = ? AND freelancer_id = ?))
+    `, [jobId, senderId, recipientId, recipientId, senderId]);
+
+    let conversationId;
+    if (!conversation) {
+      // Create conversation - get the users to determine roles
+      const user1 = await db.get("SELECT role FROM users WHERE id = ?", [senderId]);
+      const user2 = await db.get("SELECT role FROM users WHERE id = ?", [recipientId]);
+      
+      const teacherId = user1.role === 'teacher' ? senderId : recipientId;
+      const freelancerId = user1.role === 'freelancer' ? senderId : recipientId;
+      
+      conversationId = Math.random().toString(36).substr(2, 9);
+      await db.run(`
+        INSERT INTO conversations (id, job_id, teacher_id, freelancer_id)
+        VALUES (?, ?, ?, ?)
+      `, [conversationId, jobId, teacherId, freelancerId]);
+    } else {
+      conversationId = conversation.id;
+    }
+
+    // Insert message
+    const messageId = Math.random().toString(36).substr(2, 9);
+    await db.run(`
+      INSERT INTO messages (id, conversation_id, sender_id, body)
+      VALUES (?, ?, ?, ?)
+    `, [messageId, conversationId, senderId, body]);
+
+    // Update conversation last_message_at
+    await db.run("UPDATE conversations SET last_message_at = CURRENT_TIMESTAMP WHERE id = ?", [conversationId]);
+
+    const message = await db.get("SELECT * FROM messages WHERE id = ?", [messageId]);
+    res.status(201).json(message);
+  } catch (err) {
+    console.error("Message send failed:", err.message);
+    res.status(500).json({ error: "Failed to send message" });
+  }
+});
+
+// Release escrow payment
+app.put("/api/transactions/:id/release", requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.auth.userId;
+
+    // Find transaction and verify ownership
+    const tx = await db.get(`
+      SELECT t.*, j.title as job_title, u.name as freelancer_name
+      FROM transactions t
+      JOIN jobs j ON t.job_id = j.id
+      JOIN users u ON t.freelancer_id = u.id
+      WHERE t.id = ? AND t.teacher_id = ? AND t.status = ?
+    `, [id, userId, 'escrow']);
+
+    if (!tx) {
+      return res.status(404).json({ error: "Transaction not found or not authorized to release" });
+    }
+
+    // Update transaction status
+    await db.run(`
+      UPDATE transactions 
+      SET status = ?, released_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `, ['released', id]);
+
+    // Update job status
+    await db.run("UPDATE jobs SET status = ? WHERE id = ?", ['completed', tx.job_id]);
+
+    res.json({ message: "Payment released successfully", transaction: tx });
+  } catch (err) {
+    console.error("Payment release failed:", err.message);
+    res.status(500).json({ error: "Failed to release payment" });
   }
 });
 
