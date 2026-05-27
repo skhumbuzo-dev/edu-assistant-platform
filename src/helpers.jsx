@@ -1,4 +1,4 @@
-import { gold } from './constants.js';
+import { gold, C } from './constants.js';
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 export const ZAR = (n) => `R${Number(n).toLocaleString("en-ZA")}`;
@@ -28,3 +28,11 @@ export const Btn = ({ children, onClick, variant = "primary", size = "md", style
   const variants = { primary: { background: "#1B6B3A", color: "#fff" }, secondary: { background: "#f3f4f6", color: "#374151" }, outline: { background: "transparent", color: "#1B6B3A", border: `1.5px solid #1B6B3A` }, danger: { background: "#dc2626", color: "#fff" }, gold: { background: "#D4A017", color: "#fff" } };
   return <button onClick={onClick} disabled={disabled} style={{ ...base, ...sizes[size], ...variants[variant], ...style }}>{children}</button>;
 };
+
+export const Stat = ({ label, value, icon, color = "#1B6B3A" }) => (
+  <div style={{ background: "#fff", border: `1px solid #e5e7eb`, borderRadius: 10, padding: "14px 16px", textAlign: "center" }}>
+    <div style={{ fontSize: 24, marginBottom: 4 }}>{icon}</div>
+    <div style={{ fontSize: 22, fontWeight: 700, color }}>{value}</div>
+    <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{label}</div>
+  </div>
+);

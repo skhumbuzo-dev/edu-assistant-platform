@@ -324,10 +324,13 @@ app.get("/api/freelancers", async (req, res) => {
       WHERE u.role = 'freelancer'
     `);
 
+    const CATEGORIES = ["Marking","Lesson Planning","Assessment Design","Moderation Support","Data Capturing","Resource Creation","SBA Portfolio Compilation","Exam Preparation Support"];
+    
     freelancers.forEach(f => {
       f.subjects = JSON.parse(f.subjects || '[]');
       f.avatar = f.name.split(' ').map(n => n[0]).join('').slice(0, 2);
-      f.categories = ["Marking"];
+      f.categories = f.subjects && f.subjects.length > 0 ? f.subjects : [CATEGORIES[Math.floor(Math.random() * CATEGORIES.length)]];
+      f.inPerson = Math.random() > 0.5;
     });
 
     res.json(freelancers);
