@@ -94,4 +94,18 @@ export const api = {
     if (!res.ok) throw new Error("Failed to fetch user");
     return res.json();
   },
+  async getConversations(token) {
+    const res = await fetch(`${API_BASE}/conversations`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error("Failed to fetch conversations");
+    return res.json();
+  },
+  async getMessages(conversationId, token) {
+    const res = await fetch(`${API_BASE}/messages/${conversationId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error("Failed to fetch messages");
+    return res.json();
+  },
 };

@@ -12,15 +12,15 @@ const MyJobsPage = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || !user) return;
     api.getJobs()
       .then(allJobs => {
-        const myJobs = allJobs.filter(j => j.teacherId === user.id);
+        const myJobs = allJobs.filter(j => j.teacher_id === user.id || j.teacherId === user.id);
         setJobs(myJobs);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [token, user.id]);
+  }, [token, user?.id]);
 
   if (loading) {
     return <div style={{ textAlign: 'center', padding: '3rem' }}>Loading your jobs...</div>;

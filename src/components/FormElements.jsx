@@ -1,7 +1,7 @@
 import { C } from '../constants.js';
 
-export const Input = ({ label, value, onChange, type = "text", placeholder = "", required = false }) => (
-  <div style={{ marginBottom: 14 }}>
+export const Input = ({ label, value, onChange, type = "text", placeholder = "", required = false, style = {} }) => (
+  <div style={{ marginBottom: 14, ...style }}>
     {label && <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: C.gray[700], marginBottom: 4 }}>{label}{required && <span style={{ color: C.red[600] }}> *</span>}</label>}
     <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
       style={{ width: "100%", padding: "9px 12px", border: `1px solid ${C.gray[300]}`, borderRadius: 8, fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />

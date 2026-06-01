@@ -22,7 +22,7 @@ const NavBar = () => {
     <nav style={{ background: accent, color: "#fff", padding: "0 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", height: 60, position: "sticky", top: 0, zIndex: 100, boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }} onClick={() => navigate("/")}>
         <span style={{ fontSize: 22 }}>🎓</span>
-        <span style={{ fontWeight: 800, fontSize: 16, letterSpacing: -0.5 }}>EduAdmin<span style={{ color: C.gold[200] }}>Assist</span> SA</span>
+        <span style={{ fontWeight: 800, fontSize: 16, letterSpacing: -0.5 }}>EduAdmin<span style={{ color: gold }}>Assist</span> SA</span>
       </div>
       {user && (
         <div style={{ display: "flex", gap: 4 }}>
