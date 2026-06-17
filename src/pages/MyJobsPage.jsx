@@ -18,7 +18,9 @@ const MyJobsPage = () => {
         const myJobs = allJobs.filter(j => j.teacher_id === user.id || j.teacherId === user.id);
         setJobs(myJobs);
       })
-      .catch(console.error)
+      .catch(err => {
+        if (import.meta.env.DEV) console.error("Failed to fetch jobs:", err);
+      })
       .finally(() => setLoading(false));
   }, [token, user?.id]);
 

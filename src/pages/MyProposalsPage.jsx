@@ -19,7 +19,9 @@ const MyProposalsPage = () => {
         setJobs(Object.fromEntries(allJobs.map(j => [j.id, j])));
         setLoading(false);
       })
-      .catch(console.error)
+      .catch(err => {
+        if (import.meta.env.DEV) console.error("Failed to load proposals:", err);
+      })
       .finally(() => setLoading(false));
   }, [token]);
 

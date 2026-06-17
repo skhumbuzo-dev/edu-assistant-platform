@@ -22,7 +22,9 @@ const MessagesPage = () => {
         ];
         setConversations(mockConversations);
       })
-      .catch(console.error);
+      .catch(err => {
+        if (import.meta.env.DEV) console.error("Failed to load conversations:", err);
+      });
   }, [token]);
 
   const handleSelectConversation = (conv) => {
@@ -46,7 +48,7 @@ const MessagesPage = () => {
       setMessages([...messages, { id: 'temp', senderId: user.id, text: messageText, time: new Date().toLocaleTimeString() }]);
       setMessageText('');
     } catch (err) {
-      console.error(err);
+      if (import.meta.env.DEV) console.error("Failed to send message:", err);
     }
   };
 

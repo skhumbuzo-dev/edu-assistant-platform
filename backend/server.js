@@ -16,13 +16,21 @@ app.use(cors());
 app.use(express.json());
 
 const PORT = process.env.PORT || 3001;
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  throw new Error("FATAL: JWT_SECRET environment variable is required for production");
+}
 
 // SQLite Database Setup
 const dbPath = "./eduassist.db";
 const sqlite = new sqlite3.Database(dbPath, (err) => {
-  if (err) console.error("SQLite connection error:", err);
-  else console.log("✅ Connected to SQLite database:", dbPath);
+  if (err) {
+    console.error("SQLite connection error:", err);
+    if (process.env.NODE_ENV === 'development') console.error("Error details:", err);
+  } else if (process.env.NODE_ENV === 'development') {
+    console.log("✅ Connected to SQLite database:", dbPath);
+  }
 });
 
 sqlite.configure("busyTimeout", 5000);
@@ -59,7 +67,7 @@ const db = {
   try {
     // Test connection
     await db.get("SELECT 1");
-    console.log("✅ SQLite database ready");
+    if (process.env.NODE_ENV === 'development') console.log("✅ SQLite database ready");
 
     // Create tables
     await db.run(`CREATE TABLE IF NOT EXISTS users (
@@ -213,9 +221,9 @@ const db = {
       }
     }
 
-    console.log("✅ Database schema initialized");
+    console.log("Database schema initialized");
   } catch (err) {
-    console.error("❌ Database initialization error:", err);
+    console.error("Database initialization error:", err);
     process.exit(1);
   }
 })();
@@ -231,7 +239,7 @@ app.get("/api/health", async (req, res) => {
     await db.get("SELECT 1", []);
     res.json({ ok: true, message: "Backend + DB are running" });
   } catch (err) {
-    console.error("DB health check failed:", err.message);
+    console.error("Health check failed:", err.message);
     res.status(500).json({ ok: false, message: "DB connection failed" });
   }
 });
@@ -739,5 +747,9 @@ app.put("/api/transactions/:id/release", requireAuth, async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 API server running on http://localhost:${PORT}`);
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`🚀 API server running on http://localhost:${PORT}`);
+  } else {
+    console.log(`Server running on port ${PORT}`);
+  }
 });

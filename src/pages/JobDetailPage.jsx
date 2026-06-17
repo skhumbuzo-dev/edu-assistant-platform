@@ -24,7 +24,7 @@ const JobDetailPage = () => {
     api.getJob(id)
       .then(setJob)
       .catch(err => {
-        console.error(err);
+        if (import.meta.env.DEV) console.error("Failed to fetch job:", err);
         setError('Unable to load job details.');
       })
       .finally(() => setLoading(false));

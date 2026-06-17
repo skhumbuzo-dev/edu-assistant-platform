@@ -14,7 +14,9 @@ const BrowsePage = () => {
   useEffect(() => {
     api.getFreelancers()
       .then(setFreelancers)
-      .catch(console.error)
+      .catch(err => {
+        if (import.meta.env.DEV) console.error("Failed to fetch freelancers:", err);
+      })
       .finally(() => setLoading(false));
   }, []);
 

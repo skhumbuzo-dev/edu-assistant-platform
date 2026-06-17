@@ -16,7 +16,9 @@ const JobsPage = () => {
   useEffect(() => {
     api.getJobs()
       .then(setJobs)
-      .catch(console.error)
+      .catch(err => {
+        if (import.meta.env.DEV) console.error("Failed to fetch jobs:", err);
+      })
       .finally(() => setLoading(false));
   }, []);
 
